@@ -1,0 +1,26 @@
+name: ai-studio-health-check
+
+# 每天 09:00 CST 跑一次；也可以在 Actions 页面点 Run workflow 手动跑。
+# 只做公开 GET 检查，不含任何密钥。Cloady 与 ngrok 的地址是公开端点，
+# 返回 404 也算“通”（xray 未匹配路径时回 404；ngrok 会话关闭时 404）。
+# 只有 OpenRouter 要求 200。
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check OpenRouter models API (expect 200)
+        run: |
+          curl -fsS -m 20 https://openrouter.ai/api/v1/models -o /dev/null -w "openrouter HTTP %{http_code}\n"
+
+      - name: Check Cloady xray domain (any HTTP response = up)
+        run: |
+          curl -s -m 20 -o /dev/null -w "cloady-xray HTTP %{http_code}\n" https://xray-hi2szcn1-workspace-873a66.cloady.io/ || echo "cloady-xray unreachable"
+
+      - name: Check Colab ngrok URL (404 = session down, not an error)
+        run: |
+          curl -s -m 20 -o /dev/null -w "ngrok HTTP %{http_code}\n" https://requisite-viewable-emptier.ngrok-free.dev/ || echo "ngrok unreachable"
